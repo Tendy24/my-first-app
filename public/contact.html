@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <title>Contact</title>
+    <link rel="stylesheet" href="/style.css">
+</head>
+
+<body>
+    <div class="container">
+        <nav>
+            <a href="/">Home</a>
+            <a href="/about">About</a>
+            <a href="/contact">Contact</a>
+        </nav>
+        <h1>Contact Me</h1>
+
+        <!-- The form sends data to /submit-form using the POST method -->
+        <form action="/submit-form" method="POST">
+            <div style="margin-bottom: 15px;">
+                <label style="display: block; margin-bottom: 5px;">Name:</label>
+                <input type="text" name="userName" required
+                    style="width: 100%; padding: 8px; border-radius: 4px; border: 1px solid #ccc;">
+            </div>
+            <div style="margin-bottom: 15px;">
+                <label style="display: block; margin-bottom: 5px;">Message:</label>
+                <textarea name="userMessage" required
+                    style="width: 100%; padding: 8px; border-radius: 4px; border: 1px solid #ccc; height: 100px;"></textarea>
+            </div>
+            <button type="submit"
+                style="background-color: #0076ff; color: white; border: none; padding: 10px 15px; border-radius: 6px; cursor: pointer; font-weight: bold;">Send
+                Message</button>
+        </form>
+    </div>
+</body>
+
+</html>
