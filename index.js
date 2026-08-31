@@ -4,7 +4,11 @@ const { MongoClient, ServerApiVersion } = require('mongodb');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
-const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://127.0.0.1:27017/my-first-app';
+const MONGODB_URI = process.env.MONGODB_URI;
+
+if (!MONGODB_URI) {
+    throw new Error('MONGODB_URI is required. Add it in Render Environment Variables.');
+}
 
 const client = new MongoClient(MONGODB_URI, {
     serverApi: {
