@@ -1,26 +1,50 @@
 require('dotenv').config();
 
 const express = require('express');
+const fs = require('fs');
 const path = require('path');
 const { MongoClient, ServerApiVersion } = require('mongodb');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 const MONGODB_URI = process.env.MONGODB_URI;
+const DATA_FILE = path.join(__dirname, 'messages.json');
+const USE_MONGO = Boolean(MONGODB_URI);
 
-if (!MONGODB_URI) {
-    throw new Error('MONGODB_URI is required. Add it in Render Environment Variables.');
+function readMessagesFile() {
+    try {
+        const raw = fs.readFileSync(DATA_FILE, 'utf8');
+        const parsed = JSON.parse(raw);
+        return Array.isArray(parsed) ? parsed : [];
+    } catch (error) {
+        if (error.code === 'ENOENT') {
+            fs.writeFileSync(DATA_FILE, '[]', 'utf8');
+            return [];
+        }
+        throw error;
+    }
 }
 
-const client = new MongoClient(MONGODB_URI, {
-    serverApi: {
-        version: ServerApiVersion.v1,
-        strict: true,
-        deprecationErrors: true,
-    },
-});
+function writeMessagesFile(messages) {
+    fs.writeFileSync(DATA_FILE, JSON.stringify(messages, null, 2), 'utf8');
+}
+
+let client;
+if (USE_MONGO) {
+    client = new MongoClient(MONGODB_URI, {
+        serverApi: {
+            version: ServerApiVersion.v1,
+            strict: true,
+            deprecationErrors: true,
+        },
+    });
+}
 
 async function getMessagesCollection() {
+    if (!USE_MONGO) {
+        return null;
+    }
+
     await client.connect();
     return client.db('my-first-app').collection('messages');
 }
@@ -45,12 +69,16 @@ app.get('/contact', (req, res) => {
 
 app.get('/messages', async (req, res) => {
     try {
+        if (!USE_MONGO) {
+            return res.json(readMessagesFile().sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp)));
+        }
+
         const collection = await getMessagesCollection();
         const messages = await collection.find({}).sort({ timestamp: -1 }).toArray();
-        res.json(messages);
+        return res.json(messages);
     } catch (error) {
         console.error('Unable to fetch messages:', error);
-        res.status(500).json({ error: 'Could not fetch messages from the database.' });
+        return res.status(500).json({ error: 'Could not fetch messages from the database.' });
     }
 });
 
@@ -69,11 +97,27 @@ app.post('/submit-form', async (req, res) => {
     };
 
     try {
+        if (!USE_MONGO) {
+            const messages = readMessagesFile();
+            messages.push(newMessage);
+            writeMessagesFile(messages);
+            console.log(`Saved message locally for ${newMessage.name}`);
+
+            return res.send(`
+                <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 50px auto; text-align: center;">
+                    <h2>Thank you, ${newMessage.name}!</h2>
+                    <p>Your message has been saved locally.</p>
+                    <br>
+                    <a href="/contact" style="background: #007bff; color: white; padding: 10px 20px; text-decoration: none; border-radius: 4px;">Go Back</a>
+                </div>
+            `);
+        }
+
         const collection = await getMessagesCollection();
         await collection.insertOne(newMessage);
         console.log(`Saved message to MongoDB for ${newMessage.name}`);
 
-        res.send(`
+        return res.send(`
             <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 50px auto; text-align: center;">
                 <h2>Thank you, ${newMessage.name}!</h2>
                 <p>Your message has been saved to the database.</p>
@@ -82,8 +126,8 @@ app.post('/submit-form', async (req, res) => {
             </div>
         `);
     } catch (error) {
-        console.error('Failed to save message to MongoDB:', error);
-        res.status(500).send('<h2>There was an error saving your message. Please try again later.</h2>');
+        console.error('Failed to save message:', error);
+        return res.status(500).send('<h2>There was an error saving your message. Please try again later.</h2>');
     }
 });
 
@@ -94,8 +138,12 @@ app.use((req, res) => {
 
 async function startServer() {
     try {
-        await client.connect();
-        console.log('Connected to MongoDB');
+        if (USE_MONGO) {
+            await client.connect();
+            console.log('Connected to MongoDB');
+        } else {
+            console.log('MONGODB_URI not configured. Using local messages.json storage.');
+        }
 
         app.listen(PORT, () => {
             console.log(`Express application serving discrete files at http://localhost:${PORT}/`);
