@@ -1,0 +1,10 @@
+services:
+  - type: web
+    name: my-first-app
+    runtime: node
+    buildCommand: npm install
+    startCommand: npm start
+    healthCheckPath: /
+    envVars:
+      - key: MONGODB_URI
+        sync: false
