@@ -9,7 +9,7 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 const MONGODB_URI = process.env.MONGODB_URI;
 const DATA_FILE = path.join(__dirname, 'messages.json');
-const USE_MONGO = Boolean(MONGODB_URI);
+const USE_MONGO = Boolean(MONGODB_URI && !MONGODB_URI.includes('REPLACE_WITH_'));
 
 function readMessagesFile() {
     try {
