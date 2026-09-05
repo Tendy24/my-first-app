@@ -1,5 +1,9 @@
 require('dotenv').config();
 
+// Works around a Node.js OpenSSL 3.x TLS 1.3 session-resumption bug that
+// breaks handshakes against MongoDB Atlas's multi-host TLS setup.
+require('tls').DEFAULT_MAX_VERSION = 'TLSv1.2';
+
 const express = require('express');
 const fs = require('fs');
 const path = require('path');
