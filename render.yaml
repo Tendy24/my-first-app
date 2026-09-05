@@ -8,3 +8,5 @@ services:
     envVars:
       - key: MONGODB_URI
         sync: false
+      - key: NODE_OPTIONS
+        value: --tls-max-v1.2
