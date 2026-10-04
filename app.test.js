@@ -350,3 +350,249 @@ test('GET /missing returns a 404 response', async () => {
     child.kill('SIGTERM');
   }
 });
+
+test('POST /register and /login create a real authenticated session', async () => {
+  const child = spawn(process.execPath, ['index.js'], {
+    cwd: __dirname,
+    env: {
+      ...process.env,
+      MONGODB_URI: '',
+      PORT: '3106',
+      SESSION_SECRET: 'test-session-secret',
+    },
+    stdio: ['ignore', 'pipe', 'pipe'],
+  });
+
+  let output = '';
+
+  try {
+    await new Promise((resolve, reject) => {
+      const timer = setTimeout(() => reject(new Error(`Timed out waiting for startup. Output: ${output}`)), 10000);
+
+      child.stdout.on('data', (chunk) => {
+        output += chunk.toString();
+        if (output.includes('Express application serving')) {
+          clearTimeout(timer);
+          resolve();
+        }
+      });
+
+      child.stderr.on('data', (chunk) => {
+        output += chunk.toString();
+      });
+
+      child.on('error', (error) => {
+        clearTimeout(timer);
+        reject(error);
+      });
+
+      child.on('exit', (code) => {
+        if (!output.includes('Express application serving')) {
+          clearTimeout(timer);
+          reject(new Error(`Process exited with code ${code}. Output: ${output}`));
+        }
+      });
+    });
+
+    const username = `auth_user_3106_${Date.now()}`;
+    const password = 'SecurePass123!';
+
+    const registerResponse = await fetch('http://localhost:3106/register', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({ username, password }).toString(),
+      redirect: 'manual',
+    });
+
+    assert.equal(registerResponse.status, 302);
+    assert.match(registerResponse.headers.get('location') || '', /\//i);
+
+    const loginResponse = await fetch('http://localhost:3106/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({ username, password }).toString(),
+      redirect: 'manual',
+    });
+
+    assert.equal(loginResponse.status, 302);
+    assert.match(loginResponse.headers.get('location') || '', /\//i);
+
+    const rawSessionCookie = loginResponse.headers.get('set-cookie');
+    const sessionCookie = rawSessionCookie ? rawSessionCookie.split(';')[0] : '';
+
+    assert.ok(sessionCookie && sessionCookie.includes('connect.sid='));
+
+    const profileResponse = await fetch('http://localhost:3106/', {
+      headers: {
+        Cookie: sessionCookie,
+      },
+    });
+
+    const profileText = await profileResponse.text();
+    assert.match(profileText, new RegExp(username, 'i'));
+  } finally {
+    child.kill('SIGTERM');
+  }
+});
+
+test('protected account pages redirect unauthenticated users and dashboard loads for logged in users', async () => {
+  const child = spawn(process.execPath, ['index.js'], {
+    cwd: __dirname,
+    env: {
+      ...process.env,
+      MONGODB_URI: '',
+      PORT: '3107',
+      SESSION_SECRET: 'test-session-secret',
+    },
+    stdio: ['ignore', 'pipe', 'pipe'],
+  });
+
+  let output = '';
+
+  try {
+    await new Promise((resolve, reject) => {
+      const timer = setTimeout(() => reject(new Error(`Timed out waiting for startup. Output: ${output}`)), 10000);
+
+      child.stdout.on('data', (chunk) => {
+        output += chunk.toString();
+        if (output.includes('Express application serving')) {
+          clearTimeout(timer);
+          resolve();
+        }
+      });
+
+      child.stderr.on('data', (chunk) => {
+        output += chunk.toString();
+      });
+
+      child.on('error', (error) => {
+        clearTimeout(timer);
+        reject(error);
+      });
+
+      child.on('exit', (code) => {
+        if (!output.includes('Express application serving')) {
+          clearTimeout(timer);
+          reject(new Error(`Process exited with code ${code}. Output: ${output}`));
+        }
+      });
+    });
+
+    const unauthenticatedResponse = await fetch('http://localhost:3107/dashboard', { redirect: 'manual' });
+    assert.equal(unauthenticatedResponse.status, 302);
+    assert.match(unauthenticatedResponse.headers.get('location') || '', /\/login/i);
+
+    const username = `protected_user_${Date.now()}`;
+    const password = 'StrongPass123!';
+
+    const registerResponse = await fetch('http://localhost:3107/register', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({ username, password }).toString(),
+      redirect: 'manual',
+    });
+
+    const sessionCookie = registerResponse.headers.get('set-cookie')?.split(';')[0] || '';
+    assert.ok(sessionCookie.includes('connect.sid='));
+
+    const dashboardResponse = await fetch('http://localhost:3107/dashboard', {
+      headers: { Cookie: sessionCookie },
+    });
+
+    const dashboardText = await dashboardResponse.text();
+    assert.equal(dashboardResponse.status, 200);
+    assert.match(dashboardText, new RegExp(username, 'i'));
+  } finally {
+    child.kill('SIGTERM');
+  }
+});
+
+test('POST /reset-password updates the stored password for an authenticated user', async () => {
+  const child = spawn(process.execPath, ['index.js'], {
+    cwd: __dirname,
+    env: {
+      ...process.env,
+      MONGODB_URI: '',
+      PORT: '3108',
+      SESSION_SECRET: 'test-session-secret',
+    },
+    stdio: ['ignore', 'pipe', 'pipe'],
+  });
+
+  let output = '';
+
+  try {
+    await new Promise((resolve, reject) => {
+      const timer = setTimeout(() => reject(new Error(`Timed out waiting for startup. Output: ${output}`)), 10000);
+
+      child.stdout.on('data', (chunk) => {
+        output += chunk.toString();
+        if (output.includes('Express application serving')) {
+          clearTimeout(timer);
+          resolve();
+        }
+      });
+
+      child.stderr.on('data', (chunk) => {
+        output += chunk.toString();
+      });
+
+      child.on('error', (error) => {
+        clearTimeout(timer);
+        reject(error);
+      });
+
+      child.on('exit', (code) => {
+        if (!output.includes('Express application serving')) {
+          clearTimeout(timer);
+          reject(new Error(`Process exited with code ${code}. Output: ${output}`));
+        }
+      });
+    });
+
+    const username = `reset_user_${Date.now()}`;
+    const password = 'InitialPass123!';
+    const newPassword = 'NewSecurePass456!';
+
+    const registerResponse = await fetch('http://localhost:3108/register', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({ username, password }).toString(),
+      redirect: 'manual',
+    });
+
+    const sessionCookie = registerResponse.headers.get('set-cookie')?.split(';')[0] || '';
+    assert.ok(sessionCookie.includes('connect.sid='));
+
+    const resetResponse = await fetch('http://localhost:3108/reset-password', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+        Cookie: sessionCookie,
+      },
+      body: new URLSearchParams({ currentPassword: password, newPassword }).toString(),
+      redirect: 'manual',
+    });
+
+    assert.equal(resetResponse.status, 302);
+    assert.match(resetResponse.headers.get('location') || '', /\/dashboard/i);
+
+    const logoutResponse = await fetch('http://localhost:3108/logout', {
+      headers: { Cookie: sessionCookie },
+      redirect: 'manual',
+    });
+
+    assert.equal(logoutResponse.status, 302);
+
+    const loginResponse = await fetch('http://localhost:3108/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({ username, password: newPassword }).toString(),
+      redirect: 'manual',
+    });
+
+    assert.equal(loginResponse.status, 302);
+  } finally {
+    child.kill('SIGTERM');
+  }
+});
