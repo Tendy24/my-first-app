@@ -400,7 +400,7 @@ test('POST /register and /login create a real authenticated session', async () =
     const registerResponse = await fetch('http://localhost:3106/register', {
       method: 'POST',
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      body: new URLSearchParams({ username, password }).toString(),
+      body: new URLSearchParams({ username, email: `${username}@example.com`, password }).toString(),
       redirect: 'manual',
     });
 
@@ -488,7 +488,7 @@ test('protected account pages redirect unauthenticated users and dashboard loads
     const registerResponse = await fetch('http://localhost:3107/register', {
       method: 'POST',
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      body: new URLSearchParams({ username, password }).toString(),
+      body: new URLSearchParams({ username, email: `${username}@example.com`, password }).toString(),
       redirect: 'manual',
     });
 
@@ -557,7 +557,7 @@ test('POST /reset-password updates the stored password for an authenticated user
     const registerResponse = await fetch('http://localhost:3108/register', {
       method: 'POST',
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      body: new URLSearchParams({ username, password }).toString(),
+      body: new URLSearchParams({ username, email: `${username}@example.com`, password }).toString(),
       redirect: 'manual',
     });
 
@@ -592,6 +592,173 @@ test('POST /reset-password updates the stored password for an authenticated user
     });
 
     assert.equal(loginResponse.status, 302);
+  } finally {
+    child.kill('SIGTERM');
+  }
+});
+
+test('GET /register serves a dedicated registration page with styling and POST /register validates email', async () => {
+  const child = spawn(process.execPath, ['index.js'], {
+    cwd: __dirname,
+    env: {
+      ...process.env,
+      MONGODB_URI: '',
+      PORT: '3109',
+      SESSION_SECRET: 'test-session-secret',
+    },
+    stdio: ['ignore', 'pipe', 'pipe'],
+  });
+
+  let output = '';
+
+  try {
+    await new Promise((resolve, reject) => {
+      const timer = setTimeout(() => reject(new Error(`Timed out waiting for startup. Output: ${output}`)), 10000);
+
+      child.stdout.on('data', (chunk) => {
+        output += chunk.toString();
+        if (output.includes('Express application serving')) {
+          clearTimeout(timer);
+          resolve();
+        }
+      });
+
+      child.stderr.on('data', (chunk) => {
+        output += chunk.toString();
+      });
+
+      child.on('error', (error) => {
+        clearTimeout(timer);
+        reject(error);
+      });
+
+      child.on('exit', (code) => {
+        if (!output.includes('Express application serving')) {
+          clearTimeout(timer);
+          reject(new Error(`Process exited with code ${code}. Output: ${output}`));
+        }
+      });
+    });
+
+    const registerPage = await fetch('http://localhost:3109/register');
+    const registerHtml = await registerPage.text();
+
+    assert.equal(registerPage.status, 200);
+    assert.match(registerHtml, /Create Your Account/i);
+    assert.match(registerHtml, /register-shell|register-card/i);
+
+    const invalidEmailResponse = await fetch('http://localhost:3109/register', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({
+        username: 'validuser',
+        email: 'not-an-email',
+        password: 'StrongPass123!',
+      }).toString(),
+      redirect: 'manual',
+    });
+
+    assert.equal(invalidEmailResponse.status, 400);
+  } finally {
+    child.kill('SIGTERM');
+  }
+});
+
+test('GET /verify-email validates an email token and /settings updates profile details', async () => {
+  const child = spawn(process.execPath, ['index.js'], {
+    cwd: __dirname,
+    env: {
+      ...process.env,
+      MONGODB_URI: '',
+      PORT: '3110',
+      SESSION_SECRET: 'test-session-secret',
+    },
+    stdio: ['ignore', 'pipe', 'pipe'],
+  });
+
+  let output = '';
+
+  try {
+    await new Promise((resolve, reject) => {
+      const timer = setTimeout(() => reject(new Error(`Timed out waiting for startup. Output: ${output}`)), 10000);
+
+      child.stdout.on('data', (chunk) => {
+        output += chunk.toString();
+        if (output.includes('Express application serving')) {
+          clearTimeout(timer);
+          resolve();
+        }
+      });
+
+      child.stderr.on('data', (chunk) => {
+        output += chunk.toString();
+      });
+
+      child.on('error', (error) => {
+        clearTimeout(timer);
+        reject(error);
+      });
+
+      child.on('exit', (code) => {
+        if (!output.includes('Express application serving')) {
+          clearTimeout(timer);
+          reject(new Error(`Process exited with code ${code}. Output: ${output}`));
+        }
+      });
+    });
+
+    const username = `settings_user_${Date.now()}`;
+    const email = `user${Date.now()}@example.com`;
+    const password = 'StrongPass123!';
+
+    const registerResponse = await fetch('http://localhost:3110/register', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({ username, email, password }).toString(),
+      redirect: 'manual',
+    });
+
+    const sessionCookie = registerResponse.headers.get('set-cookie')?.split(';')[0] || '';
+    assert.ok(sessionCookie.includes('connect.sid='));
+
+    const users = JSON.parse(require('fs').readFileSync(require('path').join(__dirname, 'users.json'), 'utf8'));
+    const savedUser = users.find((entry) => entry.username === username);
+    assert.ok(savedUser && savedUser.emailVerificationToken);
+
+    const verifyResponse = await fetch(`http://localhost:3110/verify-email?token=${savedUser.emailVerificationToken}`, { redirect: 'manual' });
+    assert.equal(verifyResponse.status, 302);
+
+    const profileResponse = await fetch('http://localhost:3110/settings', {
+      headers: { Cookie: sessionCookie },
+    });
+    let profileHtml = await profileResponse.text();
+    assert.equal(profileResponse.status, 200);
+    assert.match(profileHtml, /Update Profile/i);
+
+    const updatedName = 'Updated Profile Name';
+    const updatedEmail = `updated${Date.now()}@example.com`;
+
+    const settingsResponse = await fetch('http://localhost:3110/settings', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+        Cookie: sessionCookie,
+      },
+      body: new URLSearchParams({
+        fullName: updatedName,
+        email: updatedEmail,
+      }).toString(),
+      redirect: 'manual',
+    });
+
+    assert.equal(settingsResponse.status, 302);
+
+    const refreshedProfileResponse = await fetch('http://localhost:3110/profile', {
+      headers: { Cookie: sessionCookie },
+    });
+    const refreshedHtml = await refreshedProfileResponse.text();
+    assert.match(refreshedHtml, new RegExp(updatedName, 'i'));
+    assert.match(refreshedHtml, new RegExp(updatedEmail, 'i'));
   } finally {
     child.kill('SIGTERM');
   }

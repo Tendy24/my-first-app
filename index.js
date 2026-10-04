@@ -130,6 +130,14 @@ function normalizeUsername(value) {
     return String(value ?? '').trim();
 }
 
+function normalizeEmail(value) {
+    return String(value ?? '').trim().toLowerCase();
+}
+
+function isValidEmail(value) {
+    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(value ?? ''));
+}
+
 function renderProtectedPage(title, bodyHtml, username) {
     const safeTitle = escapeHtml(title);
     const safeUser = escapeHtml(username || 'User');
@@ -223,19 +231,34 @@ app.get('/dashboard', requireAuth, (req, res) => {
 });
 
 app.get('/profile', requireAuth, (req, res) => {
-    const username = escapeHtml(req.session.user.username);
+    const users = readUsersFile();
+    const currentUser = users.find((user) => user.id === req.session.user.id) || req.session.user;
+    const username = escapeHtml(currentUser.username || req.session.user.username);
+    const email = escapeHtml(currentUser.email || '');
+    const fullName = escapeHtml(currentUser.fullName || '');
+    const isVerified = Boolean(currentUser.emailVerified);
+
     const body = `
       <h1>Profile</h1>
       <p><strong>Username:</strong> ${username}</p>
-      <p><strong>Account status:</strong> Active</p>
-      <p><strong>Member since:</strong> ${new Date().toLocaleDateString()}</p>
+      <p><strong>Full name:</strong> ${fullName || 'Not set'}</p>
+      <p><strong>Email:</strong> ${email || 'Not set'}</p>
+      <p><strong>Account status:</strong> ${isVerified ? 'Verified' : 'Pending email validation'}</p>
       <div class="actions">
         <a class="button" href="/dashboard">Back to Dashboard</a>
+        <a class="button secondary" href="/settings">Edit Settings</a>
         <a class="button secondary" href="/reset-password">Reset Password</a>
       </div>
     `;
 
     return res.send(renderProtectedPage('Profile', body, req.session.user.username));
+});
+
+app.get('/register', (req, res) => {
+    if (req.session.user) {
+        return res.redirect('/');
+    }
+    return res.sendFile(path.join(__dirname, 'public', 'register.html'));
 });
 
 app.get('/login', (req, res) => {
@@ -252,6 +275,85 @@ app.get('/logout', (req, res) => {
         }
         return res.redirect('/login');
     });
+});
+
+app.get('/verify-email', (req, res) => {
+    const token = String(req.query.token || '');
+
+    if (!token) {
+        return res.status(400).send('<h2>Missing email verification token.</h2>');
+    }
+
+    const users = readUsersFile();
+    const userIndex = users.findIndex((user) => user.emailVerificationToken === token);
+
+    if (userIndex === -1) {
+        return res.status(404).send('<h2>Invalid or expired verification link.</h2>');
+    }
+
+    const user = users[userIndex];
+    user.emailVerified = true;
+    user.emailVerificationToken = null;
+    user.updatedAt = new Date().toISOString();
+    writeUsersFile(users);
+
+    if (req.session.user && req.session.user.id === user.id) {
+        req.session.user.emailVerified = true;
+    }
+
+    return res.redirect('/profile');
+});
+
+app.get('/settings', requireAuth, (req, res) => {
+    const users = readUsersFile();
+    const currentUser = users.find((user) => user.id === req.session.user.id) || req.session.user;
+    const body = `
+      <h1>Update Profile</h1>
+      <form action="/settings" method="POST">
+        <label for="fullName">Full name</label>
+        <input id="fullName" name="fullName" type="text" value="${escapeHtml(currentUser.fullName || '')}">
+
+        <label for="email">Email</label>
+        <input id="email" name="email" type="email" value="${escapeHtml(currentUser.email || '')}" required>
+
+        <button type="submit">Save profile</button>
+      </form>
+    `;
+
+    return res.send(renderProtectedPage('Settings', body, req.session.user.username));
+});
+
+app.post('/settings', requireAuth, async (req, res) => {
+    const fullName = normalizeUsername(req.body.fullName);
+    const email = normalizeEmail(req.body.email);
+
+    if (!email || !isValidEmail(email)) {
+        return res.status(400).send('<h2>Please provide a valid email address.</h2>');
+    }
+
+    const users = readUsersFile();
+    const userIndex = users.findIndex((user) => user.id === req.session.user.id);
+
+    if (userIndex === -1) {
+        return res.status(404).send('<h2>User not found.</h2>');
+    }
+
+    const currentUser = users[userIndex];
+    const emailChanged = currentUser.email !== email;
+
+    currentUser.fullName = fullName;
+    currentUser.email = email;
+    if (emailChanged) {
+        currentUser.emailVerified = false;
+        currentUser.emailVerificationToken = crypto.randomBytes(32).toString('hex');
+    }
+    currentUser.updatedAt = new Date().toISOString();
+
+    writeUsersFile(users);
+    req.session.user.fullName = fullName;
+    req.session.user.email = email;
+
+    return res.redirect('/profile');
 });
 
 app.get('/reset-password', requireAuth, (req, res) => {
@@ -301,10 +403,16 @@ app.post('/reset-password', requireAuth, async (req, res) => {
 
 app.post('/register', async (req, res) => {
     const username = normalizeUsername(req.body.username);
+    const email = normalizeEmail(req.body.email);
     const password = String(req.body.password ?? '');
+    const fullName = normalizeUsername(req.body.fullName);
 
     if (!username || username.length < 3) {
         return res.status(400).send('<h2>Username must be at least 3 characters long.</h2>');
+    }
+
+    if (!email || !isValidEmail(email)) {
+        return res.status(400).send('<h2>Please provide a valid email address.</h2>');
     }
 
     if (!password || password.length < 8) {
@@ -313,17 +421,28 @@ app.post('/register', async (req, res) => {
 
     const users = readUsersFile();
     const usernameExists = users.some((user) => user.username.toLowerCase() === username.toLowerCase());
+    const emailExists = users.some((user) => user.email && user.email.toLowerCase() === email.toLowerCase());
 
     if (usernameExists) {
         return res.status(409).send('<h2>That username is already taken.</h2>');
     }
 
+    if (emailExists) {
+        return res.status(409).send('<h2>That email address is already in use.</h2>');
+    }
+
     const passwordHash = await bcrypt.hash(password, 12);
+    const emailVerificationToken = crypto.randomBytes(32).toString('hex');
     const newUser = {
         id: crypto.randomUUID(),
         username,
+        email,
+        fullName,
         passwordHash,
+        emailVerified: false,
+        emailVerificationToken,
         createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
     };
 
     users.push(newUser);
@@ -332,6 +451,9 @@ app.post('/register', async (req, res) => {
     req.session.user = {
         id: newUser.id,
         username: newUser.username,
+        fullName: newUser.fullName,
+        email: newUser.email,
+        emailVerified: newUser.emailVerified,
     };
 
     return res.redirect('/');
@@ -361,6 +483,9 @@ app.post('/login', async (req, res) => {
     req.session.user = {
         id: user.id,
         username: user.username,
+        fullName: user.fullName || '',
+        email: user.email || '',
+        emailVerified: Boolean(user.emailVerified),
     };
 
     return res.redirect('/');
