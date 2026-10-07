@@ -584,6 +584,9 @@ app.use((req, res) => {
 
 async function startServer() {
     try {
+        // Migrate local legacy account records before the server accepts requests.
+        readUsersFile();
+
         if (USE_MONGO) {
             await client.connect();
             console.log('Connected to MongoDB');
