@@ -763,3 +763,90 @@ test('GET /verify-email validates an email token and /settings updates profile d
     child.kill('SIGTERM');
   }
 });
+
+test('legacy user records are migrated with safe account-field defaults', async () => {
+  const fs = require('node:fs');
+  const path = require('node:path');
+  const usersPath = path.join(__dirname, 'users.json');
+  const originalUsers = fs.readFileSync(usersPath, 'utf8');
+  const createdAt = '2025-01-02T03:04:05.000Z';
+  const legacyUser = {
+    id: 'legacy-user-migration-test',
+    username: 'legacy_migration_user',
+    passwordHash: 'not-used-by-this-test',
+    createdAt,
+  };
+
+  fs.writeFileSync(usersPath, JSON.stringify([legacyUser], null, 2), 'utf8');
+
+  const child = spawn(process.execPath, ['index.js'], {
+    cwd: __dirname,
+    env: {
+      ...process.env,
+      MONGODB_URI: 'REPLACE_WITH_TEST_URI',
+      PORT: '3111',
+      SESSION_SECRET: 'test-session-secret',
+    },
+    stdio: ['ignore', 'pipe', 'pipe'],
+  });
+
+  let output = '';
+
+  try {
+    await new Promise((resolve, reject) => {
+      const timer = setTimeout(() => reject(new Error(`Timed out waiting for startup. Output: ${output}`)), 10000);
+
+      child.stdout.on('data', (chunk) => {
+        output += chunk.toString();
+        if (output.includes('Express application serving')) {
+          clearTimeout(timer);
+          resolve();
+        }
+      });
+
+      child.stderr.on('data', (chunk) => {
+        output += chunk.toString();
+      });
+
+      child.on('error', (error) => {
+        clearTimeout(timer);
+        reject(error);
+      });
+
+      child.on('exit', (code) => {
+        if (!output.includes('Express application serving')) {
+          clearTimeout(timer);
+          reject(new Error(`Process exited with code ${code}. Output: ${output}`));
+        }
+      });
+    });
+
+    const response = await fetch('http://localhost:3111/register', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({
+        username: `new_user_${Date.now()}`,
+        email: `new${Date.now()}@example.com`,
+        password: 'StrongPass123!',
+      }).toString(),
+      redirect: 'manual',
+    });
+
+    assert.equal(response.status, 302);
+
+    const users = JSON.parse(fs.readFileSync(usersPath, 'utf8'));
+    const migratedUser = users.find((user) => user.id === legacyUser.id);
+
+    assert.deepEqual(migratedUser, {
+      ...legacyUser,
+      email: null,
+      fullName: '',
+      emailVerified: false,
+      emailVerificationToken: null,
+      updatedAt: createdAt,
+    });
+  } finally {
+    child.kill('SIGTERM');
+    fs.writeFileSync(usersPath, originalUsers, 'utf8');
+  }
+});
