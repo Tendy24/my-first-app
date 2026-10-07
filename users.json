@@ -131,5 +131,93 @@
     "emailVerificationToken": "ef73af39af0aab98d6d6fa663381c473cd94ea8dbbd05ea779c76b835548dd9b",
     "createdAt": "2026-10-04T12:39:51.880Z",
     "updatedAt": "2026-10-04T12:39:51.945Z"
+  },
+  {
+    "id": "6f647ca8-e09c-4fab-a6d6-b2366c5175a0",
+    "username": "auth_user_3106_1791117827466",
+    "email": "auth_user_3106_1791117827466@example.com",
+    "fullName": "",
+    "passwordHash": "$2b$12$u11giJmV4TDOv.OC/wzfaOoVu/O2sHJhjH8aMMfUdeN6hjx15wdV.",
+    "emailVerified": false,
+    "emailVerificationToken": "7f7803805b23fb6d3c31a88dd24b4b1b8b7b559d75a023d5f30ba2e6c4db2783",
+    "createdAt": "2026-10-04T12:43:48.609Z",
+    "updatedAt": "2026-10-04T12:43:48.611Z"
+  },
+  {
+    "id": "d067c213-5935-47b3-8c26-2f43c1c01d9d",
+    "username": "protected_user_1791117830999",
+    "email": "protected_user_1791117830999@example.com",
+    "fullName": "",
+    "passwordHash": "$2b$12$Cu4hGErkuZ0ue2a3.uHcn.uN.BykY1jRS7iFy4BR13hSH8tMFppyi",
+    "emailVerified": false,
+    "emailVerificationToken": "a83042d22c4549b614a3e416b792c49cb4f1489698a4de6fc3b4a92dcaee88fc",
+    "createdAt": "2026-10-04T12:43:51.742Z",
+    "updatedAt": "2026-10-04T12:43:51.742Z"
+  },
+  {
+    "id": "33612f7f-51e1-49ad-be20-b36b33e51127",
+    "username": "reset_user_1791117834840",
+    "email": "reset_user_1791117834840@example.com",
+    "fullName": "",
+    "passwordHash": "$2b$12$agYUl2X4Nr1xzkdl2lU1w.sEwSqROLsWojp1CoTWkud3GKMbEI1HW",
+    "emailVerified": false,
+    "emailVerificationToken": "b1b198c4d1a49b020bac591186c0707b26fdf2fa68817f7c7865d7f10e3753cb",
+    "createdAt": "2026-10-04T12:43:55.623Z",
+    "updatedAt": "2026-10-04T12:43:55.625Z"
+  },
+  {
+    "id": "76e64d39-1c6f-47b0-8c3e-e2721f50acdc",
+    "username": "settings_user_1791117842360",
+    "email": "updated1791117843380@example.com",
+    "fullName": "Updated Profile Name",
+    "passwordHash": "$2b$12$KCXYgwSZ7QRIBvxNPXnAJ.8jiRK.VgUh3PDwEHg1yuQmWBeC8fa8q",
+    "emailVerified": false,
+    "emailVerificationToken": "f549c7c793d9346e47036dd37ca3940fcd48e8650388ba35c6786ee8cc562ab8",
+    "createdAt": "2026-10-04T12:44:03.325Z",
+    "updatedAt": "2026-10-04T12:44:03.389Z"
+  },
+  {
+    "id": "7c071cb5-912a-4915-9327-775f3a257915",
+    "username": "auth_user_3106_1791118528383",
+    "email": "auth_user_3106_1791118528383@example.com",
+    "fullName": "",
+    "passwordHash": "$2b$12$OcEV5RSj0mLDBQKaiBENUu1WJSWge8llBaWkzE0MwgLCWHc1btM8m",
+    "emailVerified": false,
+    "emailVerificationToken": "08b0b91048097d072e01e6961eeb24bca2c8a917c4b03a3fb6b98b7dbc2157a9",
+    "createdAt": "2026-10-04T12:55:29.252Z",
+    "updatedAt": "2026-10-04T12:55:29.253Z"
+  },
+  {
+    "id": "67013f25-25fc-4222-a1e8-802de2f9bd20",
+    "username": "protected_user_1791118531668",
+    "email": "protected_user_1791118531668@example.com",
+    "fullName": "",
+    "passwordHash": "$2b$12$EsmYgLIM/qgjp2nmRdWSr.f0bv4/cjprA9wB7y987i5AX82PnVqo6",
+    "emailVerified": false,
+    "emailVerificationToken": "fbdebb8e91dc3757f1f5868a1ead87ab410c97bade3fc60258213e43d67451f0",
+    "createdAt": "2026-10-04T12:55:32.401Z",
+    "updatedAt": "2026-10-04T12:55:32.401Z"
+  },
+  {
+    "id": "f09d621f-1ba6-44e2-b104-848b3676fdd2",
+    "username": "reset_user_1791118535053",
+    "email": "reset_user_1791118535053@example.com",
+    "fullName": "",
+    "passwordHash": "$2b$12$UsKhuNiGqhzzCbGUbUESIe6KjpXZYCz9480S4VR9ZyIAvxJcf7b2S",
+    "emailVerified": false,
+    "emailVerificationToken": "93632ee37ab1be55977ad5c5dcc69408df49d5391806a2f82b425361981e738c",
+    "createdAt": "2026-10-04T12:55:35.869Z",
+    "updatedAt": "2026-10-04T12:55:35.870Z"
+  },
+  {
+    "id": "09be7b50-f6e4-477b-9d56-ee8710645331",
+    "username": "settings_user_1791118542403",
+    "email": "updated1791118543269@example.com",
+    "fullName": "Updated Profile Name",
+    "passwordHash": "$2b$12$OztgpwbtUvB6BnE3bR66S.wBlgaZXSY4UyUTP0uSwyYiNvQrN2Y2e",
+    "emailVerified": false,
+    "emailVerificationToken": "e7e6d4db2e81becf3b9baa99f4032e831716d585706f650cdc2e6cf12469a08c",
+    "createdAt": "2026-10-04T12:55:43.195Z",
+    "updatedAt": "2026-10-04T12:55:43.275Z"
   }
 ]
