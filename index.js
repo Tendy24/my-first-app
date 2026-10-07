@@ -43,7 +43,24 @@ function readUsersFile() {
     try {
         const raw = fs.readFileSync(USERS_FILE, 'utf8');
         const parsed = JSON.parse(raw);
-        return Array.isArray(parsed) ? parsed : [];
+        if (!Array.isArray(parsed)) {
+            return [];
+        }
+
+        const users = parsed.map((user) => ({
+            ...user,
+            email: user.email ?? null,
+            fullName: user.fullName ?? '',
+            emailVerified: user.emailVerified ?? false,
+            emailVerificationToken: user.emailVerificationToken ?? null,
+            updatedAt: user.updatedAt ?? user.createdAt ?? null,
+        }));
+
+        if (JSON.stringify(users) !== JSON.stringify(parsed)) {
+            writeUsersFile(users);
+        }
+
+        return users;
     } catch (error) {
         if (error.code === 'ENOENT') {
             fs.writeFileSync(USERS_FILE, '[]', 'utf8');
